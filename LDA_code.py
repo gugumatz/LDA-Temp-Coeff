@@ -32,25 +32,29 @@ AAT_dict = {'A': 'ALA', 'R': 'ARG', 'N': 'ASN', 'D': 'ASP', 'C': 'CYS', 'Q': 'GL
             'T': 'THR', 'W': 'TRP', 'Y': 'TYR', 'V': 'VAL'}
 
 # Get Amino Acid Types in test protein from fasta file
-fasta_set = set(fasta)
-AATs_fasta = [AAT_dict[x] for x in fasta_set]
-AATs_fasta.sort()
+fasta_set = list(set(fasta))
+fasta_set.sort()
+AATs_fasta = fasta_set
+# AATs_fasta = [AAT_dict[x] for x in fasta_set]
+# AATs_fasta.sort()
 
 # Get column numbers of GLY and PRO
-if 'GLY' in AATs_fasta:
-    Gidx = AATs_fasta.index('GLY')
-if 'PRO' in AATs_fasta:
-    Pidx = AATs_fasta.index('PRO')
+if 'G' in AATs_fasta:
+    Gidx = AATs_fasta.index('G')
+if 'P' in AATs_fasta:
+    Pidx = AATs_fasta.index('P')
 
 # AATs not in test protein
 AATs_missing = list(set(AAT_dict.values())-set(AATs_fasta))
 
 # Test data
-SSN = test_data.iloc[:len(test_data), 0]    # Spin Systems Numbers
-AATs = test_data.iloc[:len(test_data), -1]  # Amino Acid Types
-test_data = test_data.drop(['SSN'], axis=1)
-test_data = test_data.drop(['AAT'], axis=1)
+code_name = test_data.iloc[:len(test_data), 0]
+test_data = test_data.drop(['Residue'], axis=1)
 header = test_data.columns.tolist()
+
+split_name = code_name.str.split('([A-Za-z]+)(\d+)', expand=True)
+AATs = split_name.loc[:, 1]
+SSN = split_name.loc[:, 2]
 
 # ============================= Organize Data ============================= #
 
@@ -76,8 +80,8 @@ miss_res = 0
 #    train_classes = train_classes.loc[np.invert(idxs)]
 
 # Separate GLY residues in the training set, if there are GLY in the test protein and HB or CB are input CSs
-if np.logical_and('GLY' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
-    idxs_gly = (train_classes == 'GLY')
+if np.logical_and('G' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
+    idxs_gly = (train_classes == 'G')
     data_gly = train_set.loc[idxs_gly, [x for x in header if x not in ['HB', 'CB']]]
     gly_classes = train_classes.loc[idxs_gly]
     train_set = train_set.loc[np.invert(idxs_gly), :]
@@ -91,8 +95,8 @@ if np.logical_and('GLY' in AATs_fasta, np.logical_or('HB' in header, 'CB' in hea
     miss_res = miss_res + 1
 
 # Separate PRO residues in the training set, if there are PRO in the test protein and H or N are input CSs
-if np.logical_and('PRO' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
-    idxs_pro = (train_classes == 'PRO')
+if np.logical_and('P' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
+    idxs_pro = (train_classes == 'P')
     data_pro = train_set.loc[idxs_pro, [x for x in header if x not in ['H', 'N']]]
     pro_classes = train_classes.loc[idxs_pro]
     train_set = train_set.loc[np.invert(idxs_pro), :]
@@ -114,7 +118,6 @@ train_set_all = train_set_all.to_numpy()
 # Separate test set entries with all CSs from those missing CSs
 idxs_missing = np.isnan(test_set).any(axis=1)
 test_set_all = test_set[~idxs_missing, :]
-#test_classes_all = test_classes[~idxs_missing]
 
 # ==================== Classify test set with all CSs ===================== #
 
@@ -127,9 +130,9 @@ if miss_res == 2:
     Probabilities = np.c_[Probabilities[:, :Gidx], np.zeros((len(test_set), 1)), Probabilities[:, Gidx:Pidx-1],
                           np.zeros((len(test_set), 1)), Probabilities[:, Pidx-1:]]
 elif miss_res == 1:
-    if np.logical_and('GLY' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
+    if np.logical_and('G' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
         Probabilities = np.c_[Probabilities[:, :Gidx], np.zeros((len(test_set), 1)), Probabilities[:, Gidx:]]
-    elif np.logical_and('PRO' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
+    elif np.logical_and('P' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
         Probabilities = np.c_[Probabilities[:, :Pidx], np.zeros((len(test_set), 1)), Probabilities[:, Pidx:]]
 
 # ================== Classify test set with missing CSs =================== #
@@ -167,7 +170,7 @@ for i in num_missing:
     # Classify residues missing all HB, CB, H and N
     elif (HB_CB_set | H_N_set).issubset(CSs):
         # If the test protein has both GLY and PRO in its primary sequence
-        if all(x in AATs_fasta for x in {'GLY', 'PRO'}):
+        if all(x in AATs_fasta for x in {'G', 'P'}):
             cols1 = [x for x in header_cols if x not in ord_gly]
             cols2 = [x for x in header_cols if x not in ord_pro]
             comb_aux1 = comb[cols1]
@@ -182,7 +185,7 @@ for i in num_missing:
             Probabilities[i, :] = Probs_aux
 
         # If the test protein only has GLY in its primary sequence
-        elif 'GLY' in AATs_fasta:
+        elif 'G' in AATs_fasta:
             cols1 = [x for x in header_cols if x not in ord_gly]
             comb_aux1 = comb[cols1]
             train_set = np.concatenate((train_set_all[:, ~comb], train_gly[:, ~comb_aux1]))
@@ -196,7 +199,7 @@ for i in num_missing:
             Probabilities[i, :] = Probs_aux
 
         # If the test protein only has PRO in its primary sequence
-        elif 'PRO' in AATs_fasta:
+        elif 'P' in AATs_fasta:
             cols2 = [x for x in header_cols if x not in ord_pro]
             comb_aux2 = comb[cols2]
             train_set = np.concatenate((train_set_all[:, ~comb], train_pro[:, ~comb_aux2]))
@@ -223,7 +226,7 @@ for i in num_missing:
     # Classify residues missing HB and CB
     elif HB_CB_set.issubset(CSs):
         # If the test protein has GLY in its primary sequence
-        if 'GLY' in AATs_fasta:
+        if 'G' in AATs_fasta:
             cols = [x for x in header_cols if x not in ord_gly]
             comb_aux = comb[cols]
             train_set = np.concatenate((train_set_all[:, ~comb], train_gly[:, ~comb_aux]))
@@ -234,7 +237,7 @@ for i in num_missing:
             observation = test_set[i, ~comb].reshape(1, -1)
             Probs_aux = Mdl_gly.predict_proba(observation)
             # If the test protein also has PRO in its primary sequence
-            if np.logical_and('PRO' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
+            if np.logical_and('P' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
                 Probs_aux = np.concatenate((Probs_aux[0, :Pidx], np.array([0]), Probs_aux[0, Pidx:]))
             Probabilities[i, :] = Probs_aux
 
@@ -248,14 +251,14 @@ for i in num_missing:
             observation = test_set[i, ~comb].reshape(1, -1)
             Probs_aux = Mdl.predict_proba(observation)
             # If the test protein has PRO in its primary sequence
-            if np.logical_and('GLY' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
+            if np.logical_and('G' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
                 Probs_aux = np.concatenate((Probs_aux[0, :Pidx], np.array([0]), Probs_aux[0, Pidx:]))
             Probabilities[i, :] = Probs_aux
 
     # Classify residues missing H and N
     elif H_N_set.issubset(CSs):
         # If the test protein has PRO in its primary sequence
-        if 'PRO' in AATs_fasta:
+        if 'P' in AATs_fasta:
             cols = [x for x in header_cols if x not in ord_pro]
             comb_aux = comb[cols]
             train_set = np.concatenate((train_set_all[:, ~comb], train_pro[:, ~comb_aux]))
@@ -266,7 +269,7 @@ for i in num_missing:
             observation = test_set[i, ~comb].reshape(1, -1)
             Probs_aux = Mdl_pro.predict_proba(observation)
             # If the test protein also has GLY in its primary sequence
-            if np.logical_and('GLY' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
+            if np.logical_and('G' in AATs_fasta, np.logical_or('HB' in header, 'CB' in header)):
                 Probs_aux = np.concatenate((Probs_aux[0, :Gidx], np.array([0]), Probs_aux[0, Gidx:]))
             Probabilities[i, :] = Probs_aux
 
@@ -280,7 +283,7 @@ for i in num_missing:
             observation = test_set[i, ~comb].reshape(1, -1)
             Probs_aux = Mdl.predict_proba(observation)
             # If it has GLY in its primary sequence
-            if np.logical_and('PRO' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
+            if np.logical_and('P' in AATs_fasta, np.logical_or('H' in header, 'N' in header)):
                 Probs_aux = np.concatenate((Probs_aux[0, :Gidx], np.array([0]), Probs_aux[0, Gidx:]))
             Probabilities[i, :] = Probs_aux
 
@@ -293,7 +296,7 @@ for i in num_missing:
         observation = test_set[i, ~comb].reshape(1, -1)
         Probs_aux = Mdl_miss.predict_proba(observation)
         if miss_res == 1:
-            if 'GLY' in AATs_fasta:
+            if 'G' in AATs_fasta:
                 Probs_aux = np.concatenate([Probs_aux[0, :Gidx], np.array([0]), Probs_aux[0, Gidx:]])
             else:
                 Probs_aux = np.concatenate([Probs_aux[0, :Pidx], np.array([0]), Probs_aux[0, Pidx:]])
@@ -312,7 +315,6 @@ for i in range(len(test_set)):
         Probabilities[i, Probabilities[i, :] < 0.1] = 0
 
 # Write probabilities matrix to excel file
-print(Probabilities.shape)
 Probs = pd.DataFrame(Probabilities, index=SSN_test, columns=AATs_fasta)
 Probs.to_excel('Probabilities.xlsx')
 
