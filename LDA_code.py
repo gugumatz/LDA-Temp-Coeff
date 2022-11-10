@@ -71,7 +71,6 @@ fasta_list.sort()
 for i in fasta_list:
     d[i] += 1
 
-
 # Check which AATs have already been fully classified and which are missing
 for i in d:
     if i in a:
@@ -99,13 +98,16 @@ miss_res = 0
 if np.logical_and('G' in AATs_training, np.logical_or('HB' in header, 'CB' in header)):
     idxs_gly = (train_classes == 'G')
     data_gly = train_set.loc[idxs_gly, [x for x in header if x not in ['HB', 'CB']]]
-    gly_classes = train_classes.loc[idxs_gly]
+    # gly_classes = train_classes.loc[idxs_gly]
+    gly_classes = train_classes[idxs_gly]
     train_set = train_set.loc[np.invert(idxs_gly), :]
-    train_classes = train_classes.loc[np.invert(idxs_gly)]
+    # train_classes = train_classes.loc[np.invert(idxs_gly)]
+    train_classes = train_classes[np.invert(idxs_gly)]
 
     # Discard entries missing CSs
     idxs = np.invert(data_gly.isnull().any(axis=1))
-    gly_classes = gly_classes.loc[idxs]
+    # gly_classes = gly_classes.loc[idxs]
+    gly_classes = gly_classes[idxs]
     train_gly = data_gly.loc[idxs, :]
     train_gly = train_gly.to_numpy()
     miss_res = miss_res + 1
@@ -145,7 +147,6 @@ test_set_all = test_set[~idxs_missing, :]
 Probabilities = np.ndarray(shape=(len(test_set), len(set(train_classes_all))))  # Matrix of AAT probabilities
 Mdl = LinearDiscriminantAnalysis()  # Classification model
 Mdl.fit(train_set_all, train_classes_all)  # Train the model
-aux4 = list(set(train_classes_all))
 Probabilities[~idxs_missing] = Mdl.predict_proba(test_set_all)
 
 if miss_res == 2:
