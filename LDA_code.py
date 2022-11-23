@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from itertools import compress
 from collections import Counter
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-pd.options.mode.chained_assignment = None  # default='warn'
 
 # ================ LDA method for residue mapping in IDPs ================= #
 
@@ -67,16 +66,15 @@ inds_delete = []
 for i in d:
     if i in a:
         if a[i] == d[i]:
-            print('All residues of AAT <', i, '> already classified.'
-                  ' This AAT will be removed from the training set to avoid misclassifications.')
+            print('All residues of AA type <', i, '> already classified.'
+                  ' This AA type will be removed from the training set to avoid misclassifications.')
             inds = [j for j, x in enumerate(AATs_training) if x == i]
             inds_delete.extend(inds)
             AATs.remove(i)
         elif a[i] > d[i]:
-            print('There are more residues classified as type <', i, '> in the training set than residues of that type'
-                  ' in the protein!')
-            print('Number of AAs of type <', i, '> in training set = ', a[i])
-            print('Number of AAs of type <', i, '> in protein (AA sequence) = ', d[i])
+            print('WARNING! There are misclassifications in the training set regarding AA type <', i, '>')
+            print('Number of AAs of type <', i, '> in the training set = ', a[i])
+            print('Number of AAs of type <', i, '> in the protein = ', d[i])
     else:
         print('No residues of AAT <', i, '> in training set!'
               ' It will not be possible to classify residues of this type.')
@@ -139,7 +137,8 @@ test_set_all = test_set[~idxs_missing, :]
 Probabilities = np.ndarray(shape=(len(test_set), len(set(train_classes_all))))  # Matrix of AAT probabilities
 Mdl = LinearDiscriminantAnalysis()  # Classification model
 Mdl.fit(train_set_all, train_classes_all)  # Train the model
-Probabilities[~idxs_missing] = Mdl.predict_proba(test_set_all)
+if any(~idxs_missing):
+    Probabilities[~idxs_missing] = Mdl.predict_proba(test_set_all)
 
 if miss_res == 2:
     Probabilities = np.c_[Probabilities[:, :Gidx], np.zeros((len(test_set), 1)), Probabilities[:, Gidx:Pidx - 1],
@@ -239,7 +238,8 @@ for i in num_missing:
             Probabilities[i, :] = Probs_aux
 
     # Classify residues missing HB and CB
-    elif HB_CB_set.issubset(CSs):
+    # elif HB_CB_set.issubset(CSs):
+    elif ({"HB"}.issubset(CSs) or {"CB"}.issubset(CSs)):
         # If the test protein has GLY in its primary sequence
         if 'G' in AATs:
             cols = [x for x in header_cols if x not in ord_gly]
@@ -271,7 +271,8 @@ for i in num_missing:
             Probabilities[i, :] = Probs_aux
 
     # Classify residues missing H and N
-    elif H_N_set.issubset(CSs):
+    # elif H_N_set.issubset(CSs):
+    elif ({"H"}.issubset(CSs) or {"N"}.issubset(CSs)):
         # If the test protein has PRO in its primary sequence
         if 'P' in AATs:
             cols = [x for x in header_cols if x not in ord_pro]
@@ -305,7 +306,6 @@ for i in num_missing:
     # Classify residues missing any other combination of chemical shifts
     else:
         train_set = train_set_all[:, ~comb]
-
         Mdl_miss = LinearDiscriminantAnalysis()
         Mdl_miss.fit(train_set, train_classes_all)
         observation = test_set[i, ~comb].reshape(1, -1)
