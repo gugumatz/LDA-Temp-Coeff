@@ -66,22 +66,26 @@ inds_delete = []
 for i in d:
     if i in a:
         if a[i] == d[i]:
-            print(f"All residues of AA type < {i} >already classified. This AA type will be removed from the training set to avoid misclassifications.")
+            print(f"All residues of AAT < {i} > already classified. This AA type will be removed from the training"
+                  f"set to avoid misclassifications.")
             inds = [j for j, x in enumerate(classes) if x == i]
             inds_delete.extend(inds)
             AATs_unique.remove(i)
         elif a[i] > d[i]:
-            print(f"WARNING! There are misclassifications in the training set regarding AA type < {i} >")
-            print(f"Number of AAs of type < {i} > in the training set = {a[i]}")
-            print(f"Number of AAs of type < {i} > in the protein = {d[i]}")
+            print(f"WARNING! There are misclassifications in the training set regarding AAT < {i} >")
+            print(f"Number of residues of AAT < {i} > in the training set = {a[i]}")
+            print(f"Number of residues of AAT < {i} > in the protein = {d[i]}")
     else:
-        print(f"No residues of AAT < {i} > in training set! It will not be possible to classify residues of this type.")
+        print(f"There are no residues of AAT < {i} > in the training set!\n"
+              f"It will not be possible to classify residues of this type.")
 
 if inds_delete:
     classes = np.delete(classes, inds_delete)
     train_set = train_set.drop(inds_delete, axis=0)
 train_set.insert(len(nuclei), "amino", classes, True)
 classes = train_set["amino"].copy()
+
+print(f"\nThere are {len(train_set)} residues for training and {len(test_set)} residues for testing.")
 
 # ============================ Classification ============================= #
 
@@ -102,7 +106,6 @@ nuclei_ix = list(range(0, len(nuclei)))
 for i in combs_nan:
     idxs_nan = np.all(test_nan == i, axis=1)
     nuclei_meas = list(compress(nuclei, ~i))
-    print(nuclei_meas)
     test_missing_comb = test_set[idxs_nan][nuclei_meas]
 
     # Classify residues with all NaN values
@@ -114,7 +117,6 @@ for i in combs_nan:
 
     # Classify residues that could be GLY or PRO
     elif {"HB", "CB", "HN"}.isdisjoint(nuclei_meas) and all(x in AATs_unique for x in {'G', 'P'}):
-        print('1')
         idxs = train_set[nuclei_meas].isnull().any(axis=1)
         train_set_aux = train_set[~idxs][nuclei_meas].copy()
         labels = classes[~idxs].copy()
@@ -125,7 +127,6 @@ for i in combs_nan:
 
     # Classify residues that could be GLY
     elif {"HB", "CB"}.isdisjoint(set(nuclei_meas)) and 'G' in AATs_unique:
-        print('2')
         train_set_aux = train_set[train_set["amino"] != 'P'][nuclei_meas].copy()
         labels = classes[classes != 'P'].copy()
         idxs = train_set_aux.isnull().any(axis=1)
@@ -142,7 +143,6 @@ for i in combs_nan:
 
     # Classify residues that could be PRO
     elif {"HN"}.isdisjoint(set(nuclei_meas)) and 'P' in AATs_unique:
-        print('3')
         train_set_aux = train_set[train_set["amino"] != 'G'][nuclei_meas].copy()
         labels = classes[classes != 'G'].copy()
         idxs = train_set_aux.isnull().any(axis=1)
@@ -159,7 +159,6 @@ for i in combs_nan:
 
     # Classify other residues
     else:
-        print('4')
         train_set_aux = train_set.query('amino!="P" or amino!="G"')[nuclei_meas].copy()
         labels = classes[np.logical_or(classes != 'P', classes != 'G')].copy()
         idxs = train_set_aux.isnull().any(axis=1)
