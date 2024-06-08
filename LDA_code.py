@@ -1,5 +1,6 @@
 import re
 import sys
+import openpyxl
 import collections
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 # Read NMR data
 try:
-    NMR_data = pd.read_excel(sys.argv[1], engine='openpyxl')
+    NMR_data = pd.read_excel(sys.argv[1], engine="openpyxl")
 except 'FileNotFoundError':
     NMR_data = pd.read_excel(sys.argv[1], engine="odf")
 
@@ -233,8 +234,8 @@ for i in col_nums:
     col_list.append(palette[i])
 
 # Create figure
-h = sns.relplot(x="Label", y="Residue", hue="Label", size="Probability",
-                sizes=(40, 300), alpha=.5, palette=col_list, data=plot_data, aspect=0.3)
+h = sns.relplot(x="Label", y="Residue", hue="Label", size="Probability", markers=True, edgecolor=None,
+                sizes=(40, 300), alpha=.5, palette=col_list, data=plot_data, aspect=0.4, legend='brief')
 
 # Formatting and save
 h.ax.margins(x=0.05, y=0.02)
@@ -245,11 +246,11 @@ plt.xlabel("LDA classification", size=20)
 plt.xticks(x_pos, x_labels, fontsize=10, rotation=60)
 plt.grid(axis='x', color='k', linestyle='-', linewidth=0.2)
 plt.grid(axis='y', color='k', linestyle=':', linewidth=0.2)
-sns.move_legend(h, "upper right", bbox_to_anchor=(0.68, 0.8))
+sns.move_legend(h, "upper right", bbox_to_anchor=(0.74, 0.8))
 for t, l in zip(h._legend.texts, ['Labels'] + legend_labels):
     t.set_text(l)
 h.fig.set_dpi(100)
-h.fig.set_figheight(15)
-h.fig.set_figwidth(25)
-h.savefig('Probabilities.svg', dpi=100)
+h.fig.set_figheight(8)
+h.fig.set_figwidth(10)
+h.savefig('Probabilities.png', dpi=300)
 plt.show()
